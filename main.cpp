@@ -2,7 +2,6 @@
 #include <iostream>
 #include <stdlib.h>
 #include <string>
-#include "tcpconnector.h"
 #include <pthread.h>
 #include <thread>
 #include <chrono>

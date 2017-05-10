@@ -16,7 +16,7 @@ ssize_t TCPConnection::send(const char* buffer, size_t len)
 {
 	int buffer_ready = waitForWriteEvent();
 	if( buffer_ready == m_pipe ) {
-		throw ServerDisconnected();
+		throw ServerClosingSignal();
 	}
 
 	int bytes_written = write( buffer_ready, buffer, len );
@@ -27,7 +27,7 @@ ssize_t TCPConnection::receive(char* buffer, size_t len, int timeout)
 {
 	int buffer_ready = waitForReadEvent();
 	if( buffer_ready == m_pipe ) {
-		throw ServerDisconnected();
+		throw ServerClosingSignal();
 	}
 
 	int bytes_read = read( buffer_ready, buffer, len );

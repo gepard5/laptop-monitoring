@@ -61,7 +61,7 @@ void MessageSender::sendMessage ()
 	const char* msg = str.c_str();
 	size_t bytes_sent = connection->send(msg, str.length());
 	if( bytes_sent <= 0 ) {
-		throw ServerClosingSignal();
+		throw ServerDisconnected();
 	}
 	else if( bytes_sent < str.length()) {
 		size_t all_bytes_sent = bytes_sent;
