@@ -61,7 +61,7 @@ int TCPConnection::waitForWriteEvent()
     FD_SET(m_sd, &sdset);
 	FD_ZERO(&pipeset);
 	FD_SET(m_pipe, &pipeset );
-    if (select(max_socket+1, &sdset, &pipeset, NULL, NULL) > 0)
+    if (select(max_socket+1, &pipeset, &sdset, NULL, NULL) > 0)
     {
 		if( FD_ISSET(m_sd, &sdset) ) {
 			return m_sd;

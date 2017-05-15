@@ -18,10 +18,13 @@ void* cameraHandler( void * s )
 	while( handle_camera )
 	{
 		Message m;
-		m.commandName = "camera";
-		m.params["count"] = std::to_string(++i);
+		m.commandName = "auth";
+		m.params["login"] = "a";
+		m.params["a"] = "b";
+		m.params["c"] = "d";
 		sender->pushQueueMessage(m);
 		sender->notifyAll();
+		std::cout<<"Message pushed "<<m.toString()<<std::endl;
 		std::this_thread::sleep_for(5s);
 	}
 
@@ -36,6 +39,7 @@ void* send( void *  s)
 		{
 			try{
 			sender->sendMessage();
+			std::cout<<"Message sent"<<std::endl;
 			}
 			catch( ServerDisconnected& e ) {
 				std::cout<<"Server disconnected!"<<std::endl;
@@ -54,13 +58,13 @@ void* receive( void * s)
 {
 	using namespace std::chrono_literals;
 	MessageSender *sender = (MessageSender*) s;
-	std::string address = "localhost";
+	std::string address = "192.168.43.141";
 	pthread_t send_thread;
 
 	try {
 		while( 1 )
 		{
-			while( !sender->connect( address.c_str(), 9995, 1 ) ) {
+			while( !sender->connect( address.c_str(), 9001, 1 ) ) {
 				std::this_thread::sleep_for(1s);
 			}
 
