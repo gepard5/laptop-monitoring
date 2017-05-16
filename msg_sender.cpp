@@ -206,6 +206,7 @@ bool MessageSender::connect(const char* server, int port, int timeout)
 	if (result == -1) return false;
     connection = new TCPConnection(sd);
 	connection->setPipe( server_pipe[0] );
+	connection->setStoppingPipe( threads_pipe[0] );
 	return true;
 }
 
@@ -236,6 +237,31 @@ void MessageSender::stopServer() {
 void MessageSender::startServer() {
 	char t;
 	read( server_pipe[0], &t, 1 );
+}
+
+void MessageSender::stopAll() {
+	char t = '!';
+	write( threads_pipe[1], &t, 1 );
+	notifyAll();
+}
+
+int MessageSender::waitForServerClosignEvent() {
+	fd_set sdset;
+	FD_ZERO(&sdset);
+	FD_SET(threads_pipe[0], &sdset);
+	FD_SET(0, &sdset);
+	while( select( threads_pipe[0] + 1, &sdset, NULL, NULL, NULL ) <= 0 )
+	{ }
+
+	if( FD_ISSET(0, &sdset) ) {
+		return 0;
+	}
+
+	if( FD_ISSET(threads_pipe[0], &sdset) ) {
+		return threads_pipe[0];
+	}
+
+	return -1;
 }
 
 

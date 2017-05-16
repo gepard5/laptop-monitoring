@@ -33,3 +33,8 @@ class ServerClosingSignal : public std::logic_error {
 	public:
 		ServerClosingSignal() : std::logic_error ( "Server closing signal") {}
 };
+
+class ShutdownServerSignal : public std::logic_error {
+	public:
+		ShutdownServerSignal() : std::logic_error ( "Server shut down signal received" ) {}
+};

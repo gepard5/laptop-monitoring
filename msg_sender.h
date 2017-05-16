@@ -54,9 +54,12 @@ class MessageSender {
 
 		void startServer();
 		void stopServer();
+		void stopAll();
 
 		void notifyAll()
 		{ queue_empty.notify_all(); }
+
+		int waitForServerClosignEvent();
 
  	private:
 		typedef std::set<Token::TYPE> TokenSet;
