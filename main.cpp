@@ -16,13 +16,18 @@
 #include <opencv2/video.hpp>
 #include "opencv2/opencv.hpp"
 
+#include <boost/program_options.hpp>
+
+namespace po = boost::program_options;
+
 bool handle_camera;
 int keyboard;
 
 int movement_threshold = 5000;
-double subractor_rate = 0.01;
+double subtractor_rate = 0.01;
 bool calculate_new_backgorund = false;
-bool show_frames = true;
+bool show_frames = false;
+
 
 
 void* cameraHandler( void * s )
@@ -133,13 +138,13 @@ void* receive( void * s)
 {
 	using namespace std::chrono_literals;
 	MessageSender *sender = (MessageSender*) s;
-	std::string address = "192.168.43.141";
+	//std::string address = "192.168.43.141";
 	pthread_t send_thread;
 
 	try {
 		while( 1 )
 		{
-			while( !sender->connect( address.c_str(), 9001, 1 ) ) {
+			while( !sender->connect( sender->address.c_str(), sender->port, 1 ) ) {
 				std::this_thread::sleep_for(1s);
 			}
 
@@ -182,6 +187,66 @@ int main(int argc, char** argv)
 	pthread_t receiver, camera;
 	MessageSender sender;
 	handle_camera = true;
+
+		//initialize command line parser
+	po::variables_map vm;
+	po::options_description desc("Allowed options");
+	try
+	{
+		desc.add_options()
+			("help,h", 																						"produce help message")
+			("server,s",							po::value<std::string>(),		"set server address" )
+			("port,p", 								po::value<int>(),					 	"set port")
+			("show_frames,f",																		"set showing frames")
+			("movement_threshold,t",	po::value<int>(),						"set movement_threshold")
+			("subtractor_rate,r", 		po::value<double>(),				"set subtractor_rate")
+		;
+
+		po::store(po::parse_command_line(argc, argv, desc), vm);
+		po::notify(vm);
+	}
+
+		catch( po::error& e)
+	{
+		std::cout<<e.what()<<std::endl;
+		std::cout<<desc<<std::endl;
+		return 0;
+	}
+
+	//print help
+	if ( vm.count("help") ) {
+		std::cout<<desc<<std::endl;
+		return 0;
+	}
+
+	if( vm.count("server") ) {
+		sender.address = vm["server"].as<std::string>();
+		std::cout<<"address set to: "<<sender.address<<std::endl;
+	}
+
+	if( vm.count("port") ) {
+		sender.port = vm["port"].as<int>();
+		std::cout<<"port set to: "<<sender.port<<std::endl;
+	}
+
+	//set movement_threshold
+	if( vm.count("movement_threshold") ) {
+		movement_threshold = vm["movement_threshold"].as<int>();
+		std::cout<<"movement_threshold set to: "<<movement_threshold<<std::endl;
+	}
+
+	//set subtractor_rate
+	if( vm.count("subtractor_rate") ) {
+		subtractor_rate = vm["subtractor_rate"].as<double>();
+		std::cout<<"subtractor_rate set to: "<<subtractor_rate<<std::endl;
+	}
+
+	if( vm.count("show_frames") ) {
+		show_frames = true;
+		std::cout<<"show_frames set to: "<<show_frames<<std::endl;
+	}
+
+
 
 	pthread_create(&receiver, NULL, &receive, &sender);
 	pthread_create(&camera, NULL, &cameraHandler, &sender);

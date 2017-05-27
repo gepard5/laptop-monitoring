@@ -1,5 +1,5 @@
 CXX=g++
-CFLAGS=-lpthread -Wall -std=c++14 `pkg-config --cflags --libs opencv`
+CFLAGS=-lpthread -Wall -std=c++14 `pkg-config --cflags --libs opencv` -lboost_program_options
 
 
 DEPS=tcpconnection.h token.h lexer.h source.h bufferSource.h server_exceptions.h msg_sender.h

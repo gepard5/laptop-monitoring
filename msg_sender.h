@@ -39,7 +39,7 @@ struct Message {
 class MessageSender {
 	public:
  		MessageSender();
-		~MessageSender() 
+		~MessageSender()
 		{ if(connection) delete connection; }
 
 		bool connect( const char*, int, int);
@@ -61,6 +61,9 @@ class MessageSender {
 
 		int waitForServerClosignEvent();
 
+		std::string address;
+		int port;
+
  	private:
 		typedef std::set<Token::TYPE> TokenSet;
 
@@ -74,4 +77,5 @@ class MessageSender {
  		TCPConnection* connection;
 		BufferSource source;
 		Lexer lexer;
+
 };
