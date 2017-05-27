@@ -139,9 +139,10 @@ Token MessageSender::getTypeToken( const TokenSet& t )
 }
 
 
-bool MessageSender::connect(const char* server, int port, int timeout)
+bool MessageSender::connect(int timeout)
 {
     struct sockaddr_in address;
+		const char * server = server_address.c_str();
 
     memset (&address, 0, sizeof(address));
     address.sin_family = AF_INET;
@@ -264,5 +265,18 @@ int MessageSender::waitForServerClosignEvent() {
 	return -1;
 }
 
+int MessageSender::getPort() {
+	return port;
+}
 
+void MessageSender::setPort (int p) {
+	port = p;
+}
 
+std::string MessageSender::getServerAddress () {
+	return server_address;
+}
+
+void MessageSender::setServerAddress (std::string s) {
+	server_address = s;
+}

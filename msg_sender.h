@@ -42,7 +42,7 @@ class MessageSender {
 		~MessageSender()
 		{ if(connection) delete connection; }
 
-		bool connect( const char*, int, int);
+		bool connect(int);
 		void closeConnection();
 		int resolveHostName(const char*, struct in_addr*);
 
@@ -61,8 +61,13 @@ class MessageSender {
 
 		int waitForServerClosignEvent();
 
-		std::string address;
-		int port;
+		int getPort();
+		void setPort( int p);
+		std::string getServerAddress();
+		void setServerAddress(std::string s);
+
+
+
 
  	private:
 		typedef std::set<Token::TYPE> TokenSet;
@@ -77,5 +82,7 @@ class MessageSender {
  		TCPConnection* connection;
 		BufferSource source;
 		Lexer lexer;
+		std::string server_address;
+		int port;
 
 };

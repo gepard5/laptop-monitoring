@@ -144,7 +144,7 @@ void* receive( void * s)
 	try {
 		while( 1 )
 		{
-			while( !sender->connect( sender->address.c_str(), sender->port, 1 ) ) {
+			while( !sender->connect( 1 ) ) {
 				std::this_thread::sleep_for(1s);
 			}
 
@@ -220,13 +220,13 @@ int main(int argc, char** argv)
 	}
 
 	if( vm.count("server") ) {
-		sender.address = vm["server"].as<std::string>();
-		std::cout<<"address set to: "<<sender.address<<std::endl;
+		sender.setServerAddress(vm["server"].as<std::string>());
+		std::cout<<"address set to: "<<sender.getServerAddress()<<std::endl;
 	}
 
 	if( vm.count("port") ) {
-		sender.port = vm["port"].as<int>();
-		std::cout<<"port set to: "<<sender.port<<std::endl;
+		sender.setPort(vm["port"].as<int>());
+		std::cout<<"port set to: "<<sender.getPort()<<std::endl;
 	}
 
 	//set movement_threshold
