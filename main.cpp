@@ -174,24 +174,24 @@ void* receive( void * s)
 
 
 		Message m1;
-		m.commandName = "auth";
-		m.params["name"] = "CM";
-		m.params["password"] = "pass";
-		m.params["localization"] = "PL";
-		sender->pushQueueMessage(m);
+		m1.commandName = "auth";
+		m1.params["name"] = "CM";
+		m1.params["password"] = "pass";
+		m1.params["localization"] = "PL";
+		sender->pushQueueMessage(m1);
 		sender->notifyAll();
-		std::cout<<"Message pushed "<<m.toString()<<std::endl;
+		std::cout<<"Message pushed "<<m1.toString()<<std::endl;
 
 		Message m2 = sender->getMessage();
 
-		if(m2.params["code"] != "costam"){
+		if(m2.commandName != "authServ"){
 
 			sender->stopAll();
-			pthread_join(send_thread, NULL);
-
 			return 0;
 
 		}
+
+
 
 
 
@@ -209,6 +209,11 @@ void* receive( void * s)
 				{
 					Message m = sender->getMessage();
 					std::cout<<m.toString()<<std::endl;
+					if(m.commandName == "close") {
+						sender->stopAll();
+						pthread_join(send_thread, NULL);
+						return 0;
+					}
 				}
 			}
 			catch(ServerDisconnected& e ){
