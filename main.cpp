@@ -169,9 +169,20 @@ void* receive( void * s)
 	catch( ServerClosingSignal& e ) {
 		std::cout<<"Received server closing signal"<<std::endl;
 		sender->startServer();
+
 		//tutaj zwykłe zamknięcie, wysyłanie wiadomości do serwera
+		Message m;
+		m.commandName = "end";
+		sender->pushQueueMessage(m);
+		sender->sendMessage();
 		//tutaj try catch ( łapać ShutdownServerSignal ) i wysyłanie wiadomości do serwera
 		//ze klient kończy swoje działanie
+		try {
+			catch ( ShutdownServerSignal& e) {
+				pthread_join(send_thread, NULL);
+			}
+		}
+
 		sender->stopAll();
 		return 0;
 	}
@@ -197,7 +208,7 @@ int main(int argc, char** argv)
 			("help,h", 																						"produce help message")
 			("server,s",							po::value<std::string>(),		"set server address" )
 			("port,p", 								po::value<int>(),					 	"set port")
-			("show_frames,f",																		"set showing frames")
+			("show_frames,f",																			"set showing frames")
 			("movement_threshold,t",	po::value<int>(),						"set movement_threshold")
 			("subtractor_rate,r", 		po::value<double>(),				"set subtractor_rate")
 		;
