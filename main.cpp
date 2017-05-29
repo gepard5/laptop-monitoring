@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <thread>
 #include <chrono>
+#include <ctime>
 
 #include "msg_sender.h"
 #include "server_exceptions.h"
@@ -28,7 +29,20 @@ double subtractor_rate = 0.01;
 bool calculate_new_backgorund = false;
 bool show_frames = false;
 
+std::string getTimeString(){
 
+	time_t rawtime;
+	struct tm * timeinfo;
+	char buffer[80];
+
+	time (&rawtime);
+	timeinfo = localtime(&rawtime);
+
+	strftime(buffer,sizeof(buffer),"%d-%m-%Y_%I-%M-%S",timeinfo);
+	std::string time_str(buffer);
+	return time_str;
+
+}
 
 void* cameraHandler( void * s )
 {
@@ -49,6 +63,11 @@ void* cameraHandler( void * s )
 		while( handle_camera && !capture.isOpened()  )
 		{
 			std::cout << "Unable to open camera" << endl;
+			Message m;
+			m.commandName = "camerr";
+			m.params["time"] = getTimeString();
+			sender->pushQueueMessage(m);
+			sender->notifyAll();
 			std::this_thread::sleep_for(1s);
 			capture = VideoCapture(0);
 		}
@@ -67,6 +86,12 @@ void* cameraHandler( void * s )
 			if( calculate_new_backgorund ) {
 				pMOG2->apply(frame, fgMaskMOG2, 1);
 				calculate_new_backgorund = false;
+
+				Message m;
+				m.commandName = "done";
+				m.params["time"] = getTimeString();
+				sender->pushQueueMessage(m);
+				sender->notifyAll();
 			}
 
 			GaussianBlur(frame, frame, Size(9, 9), 2, 2 );
@@ -83,11 +108,13 @@ void* cameraHandler( void * s )
 
 			if( non_zero > movement_threshold && ( end - start ) > CLOCKS_PER_SEC ) {
 				std::cout<<"Movement found!"<<std::endl;
+
+
+
 				Message m;
-				m.commandName = "auth";
-				m.params["login"] = "a";
-				m.params["a"] = "b";
-				m.params["c"] = "d";
+				m.commandName = "event";
+				m.params["time"] = getTimeString();
+				m.params["movement"] = std::to_string(non_zero);
 				sender->pushQueueMessage(m);
 				sender->notifyAll();
 				std::cout<<"Message pushed "<<m.toString()<<std::endl;
@@ -136,10 +163,37 @@ void* send( void *  s)
 
 void* receive( void * s)
 {
+
+
+
+
 	using namespace std::chrono_literals;
 	MessageSender *sender = (MessageSender*) s;
 	//std::string address = "192.168.43.141";
 	pthread_t send_thread;
+
+
+		Message m1;
+		m.commandName = "auth";
+		m.params["name"] = "CM";
+		m.params["password"] = "pass";
+		m.params["localization"] = "PL";
+		sender->pushQueueMessage(m);
+		sender->notifyAll();
+		std::cout<<"Message pushed "<<m.toString()<<std::endl;
+
+		Message m2 = sender->getMessage();
+
+		if(m2.params["code"] != "costam"){
+
+			sender->stopAll();
+			pthread_join(send_thread, NULL);
+
+			return 0;
+
+		}
+
+
 
 	try {
 		while( 1 )
@@ -173,15 +227,17 @@ void* receive( void * s)
 		//tutaj zwykłe zamknięcie, wysyłanie wiadomości do serwera
 		Message m;
 		m.commandName = "end";
+		m.params["time"] = getTimeString();
 		sender->pushQueueMessage(m);
 		sender->sendMessage();
 		//tutaj try catch ( łapać ShutdownServerSignal ) i wysyłanie wiadomości do serwera
 		//ze klient kończy swoje działanie
-		try {
-			catch ( ShutdownServerSignal& e) {
-				pthread_join(send_thread, NULL);
-			}
-		}
+
+			// catch ( ShutdownServerSignal& e) {
+			// 	pthread_join(send_thread, NULL);
+			// 	return 0;
+			// }
+
 
 		sender->stopAll();
 		return 0;
@@ -256,7 +312,6 @@ int main(int argc, char** argv)
 		show_frames = true;
 		std::cout<<"show_frames set to: "<<show_frames<<std::endl;
 	}
-
 
 
 	pthread_create(&receiver, NULL, &receive, &sender);
