@@ -23,8 +23,9 @@
 #include <sstream>
 #include <mutex>
 #include <condition_variable>
-#include <netinet/in.h>
+
 #include "tcpconnection.h"
+#include "TCPConnector.h"
 #include "bufferSource.h"
 #include "lexer.h"
 
@@ -42,12 +43,6 @@ class MessageSender {
 		~MessageSender()
 		{ if(connection) delete connection; }
 
-		bool connect(int);
-		bool isConnected() const
-		{ return connected; }
-		void closeConnection();
-		int resolveHostName(const char*, struct in_addr*);
-
  		void sendMessage();
 		void sendMessage(Message& m);
  		Message getMessage();
@@ -59,12 +54,15 @@ class MessageSender {
 		void stopServer();
 		void stopAll();
 
+		bool connect();
+		bool isConnected() const
+		{ return connected; }
+		void setConnector( TCPConnector* tcp )
+		{ connector = tcp; }
+		void closeConnection();
+
 		int waitForServerClosignEvent();
 
-		int getPort();
-		void setPort( int p);
-		std::string getServerAddress();
-		void setServerAddress(std::string s);
  	private:
 		typedef std::set<Token::TYPE> TokenSet;
 
@@ -76,13 +74,16 @@ class MessageSender {
 
 		int server_pipe[2];
 		int threads_pipe[2];
+
  		std::queue<Message> msg_queue;
 		std::mutex queue_mutex;
 		std::condition_variable queue_empty;
- 		TCPConnection* connection;
+
+		TCPConnector *connector;
+ 		TCPConnection *connection;
+		bool connected;
+		const int CONNECT_TIMEOUT = 1;
+
 		BufferSource source;
 		Lexer lexer;
-		std::string server_address{ "localhost" };
-		int port{ 9001 };
-		bool connected{ false };
 };

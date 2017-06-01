@@ -20,11 +20,6 @@
 #include <sstream>
 #include <iostream>
 #include <string.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <errno.h>
-
 
 #include "msg_sender.h"
 #include "server_exceptions.h"
@@ -133,99 +128,10 @@ Token MessageSender::getTypeToken( const TokenSet& t )
 	return token;
 }
 
-
-bool MessageSender::connect(int timeout)
-{
-    struct sockaddr_in address;
-		const char * server = server_address.c_str();
-
-    memset (&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    if (resolveHostName(server, &(address.sin_addr)) != 0 ) {
-        inet_pton(PF_INET, server, &(address.sin_addr));
-    }
-
-    long arg;
-    fd_set sdset;
-    struct timeval tv;
-    socklen_t len;
-    int result = -1, valopt, sd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (sd < 0) {
-		throw ServerClosingSignal();
-        return false;
-    }
-
-    arg = fcntl(sd, F_GETFL, NULL);
-    arg |= O_NONBLOCK;
-    fcntl(sd, F_SETFL, arg);
-
-	std::string message;
-    if ((result = ::connect(sd, (struct sockaddr *)&address, sizeof(address))) < 0)
-    {
-        if (errno == EINPROGRESS)
-        {
-			fd_set pipeset;
-            tv.tv_sec = timeout;
-            tv.tv_usec = 0;
-            FD_ZERO(&sdset);
-            FD_SET(sd, &sdset);
-			FD_ZERO(&pipeset);
-			FD_SET(server_pipe[0], &pipeset);
-
-			int max_s = sd > server_pipe[0] ? sd : server_pipe[0];
-
-            int s = -1;
-            do {
-                s = select(max_s+1, &pipeset, &sdset, NULL, &tv);
-            } while (s == -1 && errno == EINTR);
-
-			if( FD_ISSET(server_pipe[0], &pipeset) ) {
-				throw ServerClosingSignal();
-			}
-
-            if (s > 0)
-            {
-                len = sizeof(int);
-                getsockopt(sd, SOL_SOCKET, SO_ERROR, (void*)(&valopt), &len);
-                if (valopt) {
-                    fprintf(stderr, "connect() error %d - %s\n", valopt, strerror(valopt));
-                }
-                else {
-					result = 0;
-				}
-            }
-        }
-    }
-
-	if (result == -1) {
-		connected = false;
-		return false;
-	}
-    connection = new TCPConnection(sd);
-	connection->setPipe( server_pipe[0] );
-	connection->setStoppingPipe( threads_pipe[0] );
-	connected = true;
-	return true;
-}
-
 void MessageSender::closeConnection()
 {
 	if( connection ) delete connection;
 	connection = nullptr;
-}
-
-int MessageSender::resolveHostName(const char* hostname, struct in_addr* addr)
-{
-    struct addrinfo *res;
-
-    int result = getaddrinfo (hostname, NULL, NULL, &res);
-    if (result == 0) {
-        memcpy(addr, &((struct sockaddr_in *) res->ai_addr)->sin_addr, sizeof(struct in_addr));
-        freeaddrinfo(res);
-    }
-    return result;
 }
 
 void MessageSender::stopServer() {
@@ -264,18 +170,13 @@ int MessageSender::waitForServerClosignEvent() {
 	return -1;
 }
 
-int MessageSender::getPort() {
-	return port;
-}
-
-void MessageSender::setPort (int p) {
-	port = p;
-}
-
-std::string MessageSender::getServerAddress () {
-	return server_address;
-}
-
-void MessageSender::setServerAddress (std::string s) {
-	server_address = s;
+bool MessageSender::connect()
+{
+	connection = connector->connect(CONNECT_TIMEOUT, server_pipe[0]);
+	connected = connection != nullptr;
+	if( connected ) {
+		connection->setPipe( server_pipe[0] );
+		connection->setStoppingPipe( threads_pipe[0] );
+	}
+	return connected;
 }

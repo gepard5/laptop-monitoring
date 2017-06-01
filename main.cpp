@@ -9,6 +9,7 @@
 
 #include "msg_sender.h"
 #include "server_exceptions.h"
+#include "TCPConnector.h"
 
 #include "opencv2/imgcodecs.hpp"
 #include "opencv2/imgproc.hpp"
@@ -164,7 +165,7 @@ void* receive( void * s)
 	try {
 		while( 1 )
 		{
-			while( !sender->connect( 1 ) ) {
+			while( !sender->connect() ) {
 				std::this_thread::sleep_for(1s);
 			}
 
@@ -240,6 +241,7 @@ int main(int argc, char** argv)
 {
 	pthread_t receiver, camera;
 	MessageSender sender;
+	TCPConnector connector;
 	handle_camera = true;
 
 	po::variables_map vm;
@@ -272,13 +274,13 @@ int main(int argc, char** argv)
 	}
 
 	if( vm.count("server") ) {
-		sender.setServerAddress(vm["server"].as<std::string>());
-		std::cout<<"address set to: "<<sender.getServerAddress()<<std::endl;
+		connector.setServerAddress(vm["server"].as<std::string>());
+		std::cout<<"address set to: "<<connector.getServerAddress()<<std::endl;
 	}
 
 	if( vm.count("port") ) {
-		sender.setPort(vm["port"].as<int>());
-		std::cout<<"port set to: "<<sender.getPort()<<std::endl;
+		connector.setPort(vm["port"].as<int>());
+		std::cout<<"port set to: "<<connector.getPort()<<std::endl;
 	}
 
 	if( vm.count("movement_threshold") ) {
@@ -297,6 +299,8 @@ int main(int argc, char** argv)
 	}
 
 
+
+	sender.setConnector( &connector );
 	pthread_create(&receiver, NULL, &receive, &sender);
 	pthread_create(&camera, NULL, &cameraHandler, &sender);
 

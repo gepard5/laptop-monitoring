@@ -16,6 +16,9 @@
  * =====================================================================================
  */
 
+#ifndef SERVER_EXCEPTIONS
+#define SERVER_EXCEPTIONS
+
 #include <exception>
 #include <stdexcept>
 
@@ -38,3 +41,5 @@ class ShutdownServerSignal : public std::logic_error {
 	public:
 		ShutdownServerSignal() : std::logic_error ( "Server shut down signal received" ) {}
 };
+
+#endif
