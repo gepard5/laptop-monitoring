@@ -36,7 +36,6 @@ class Lexer {
 	private:
 		typedef std::set<std::string> StringSet;
 		Token getMessageEdge( Source& );
-		Token getStringMessage( Source& );
 
 		Token::TYPE getTokenType( const std::string& ) const;
 		Token::TYPE getTokenType( char ) const;
@@ -58,8 +57,6 @@ class Lexer {
 
 		bool isSingleCharToken(char c) const
 		{ return single_char_tokens.count(c) == 1; }
-
-		std::string buf;
 
 		StringSet object_edges;
 		std::set<char> separators;

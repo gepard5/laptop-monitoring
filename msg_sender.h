@@ -43,21 +43,21 @@ class MessageSender {
 		{ if(connection) delete connection; }
 
 		bool connect(int);
+		bool isConnected() const
+		{ return connected; }
 		void closeConnection();
 		int resolveHostName(const char*, struct in_addr*);
 
  		void sendMessage();
+		void sendMessage(Message& m);
  		Message getMessage();
+
 		Message popQueueMessage();
 		void pushQueueMessage(const Message&);
-		void updateSource();
 
 		void startServer();
 		void stopServer();
 		void stopAll();
-
-		void notifyAll()
-		{ queue_empty.notify_all(); }
 
 		int waitForServerClosignEvent();
 
@@ -65,14 +65,14 @@ class MessageSender {
 		void setPort( int p);
 		std::string getServerAddress();
 		void setServerAddress(std::string s);
-
-
-
-
  	private:
 		typedef std::set<Token::TYPE> TokenSet;
 
 		Token getTypeToken( const TokenSet& );
+		void updateSource(BufferSource*);
+
+		void notifyAll()
+		{ queue_empty.notify_all(); }
 
 		int server_pipe[2];
 		int threads_pipe[2];
@@ -82,7 +82,7 @@ class MessageSender {
  		TCPConnection* connection;
 		BufferSource source;
 		Lexer lexer;
-		std::string server_address;
-		int port;
-
+		std::string server_address{ "localhost" };
+		int port{ 9001 };
+		bool connected{ false };
 };

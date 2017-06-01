@@ -67,7 +67,6 @@ void* cameraHandler( void * s )
 			m.commandName = "camerr";
 			m.params["time"] = getTimeString();
 			sender->pushQueueMessage(m);
-			sender->notifyAll();
 			std::this_thread::sleep_for(1s);
 			capture = VideoCapture(0);
 		}
@@ -78,10 +77,11 @@ void* cameraHandler( void * s )
 			if(!capture.read(frame))
 			{
 				cerr << "Unable to read next frame." << endl;
+				capture.release();
 				break;
 			}
 
-			pMOG2->apply(frame, fgMaskMOG2, 0.01);
+			pMOG2->apply(frame, fgMaskMOG2, subtractor_rate);
 
 			if( calculate_new_backgorund ) {
 				pMOG2->apply(frame, fgMaskMOG2, 1);
@@ -91,7 +91,6 @@ void* cameraHandler( void * s )
 				m.commandName = "done";
 				m.params["time"] = getTimeString();
 				sender->pushQueueMessage(m);
-				sender->notifyAll();
 			}
 
 			GaussianBlur(frame, frame, Size(9, 9), 2, 2 );
@@ -107,16 +106,11 @@ void* cameraHandler( void * s )
 			end = clock();
 
 			if( non_zero > movement_threshold && ( end - start ) > CLOCKS_PER_SEC ) {
-				std::cout<<"Movement found!"<<std::endl;
-
-
-
 				Message m;
 				m.commandName = "event";
 				m.params["time"] = getTimeString();
 				m.params["movement"] = std::to_string(non_zero);
 				sender->pushQueueMessage(m);
-				sender->notifyAll();
 				std::cout<<"Message pushed "<<m.toString()<<std::endl;
 				start = clock();
 			}
@@ -131,6 +125,8 @@ void* cameraHandler( void * s )
 		}
 	}
 	capture.release();
+
+	return 0;
 }
 
 
@@ -140,22 +136,20 @@ void* send( void *  s)
 	try {
 		while( 1 )
 		{
-			try{
 			sender->sendMessage();
 			std::cout<<"Message sent"<<std::endl;
-			}
-			catch( ServerDisconnected& e ) {
-				std::cout<<"Server disconnected!"<<std::endl;
-				return 0;
-			}
 		}
+	}
+	catch( ServerDisconnected& e ) {
+		std::cout<<"Server disconnected!"<<std::endl;
+		return 0;
 	}
 	catch( ServerClosingSignal& e ) {
 		std::cout<<"Received server closing signal"<<std::endl;
 		return 0;
 	}
 	catch( ShutdownServerSignal& e ) {
-		//natychmiastowe zamknięcie, zamykaj wszystko
+		std::cout<<"Received server shutdown signal"<<std::endl;
 		return 0;
 	}
 }
@@ -163,43 +157,26 @@ void* send( void *  s)
 
 void* receive( void * s)
 {
-
-
-
-
 	using namespace std::chrono_literals;
 	MessageSender *sender = (MessageSender*) s;
-	//std::string address = "192.168.43.141";
 	pthread_t send_thread;
-
-
-		Message m1;
-		m1.commandName = "auth";
-		m1.params["name"] = "CM";
-		m1.params["password"] = "pass";
-		m1.params["localization"] = "PL";
-		sender->pushQueueMessage(m1);
-		sender->notifyAll();
-		std::cout<<"Message pushed "<<m1.toString()<<std::endl;
-
-		Message m2 = sender->getMessage();
-
-		if(m2.commandName != "authServ"){
-
-			sender->stopAll();
-			return 0;
-
-		}
-
-
-
-
 
 	try {
 		while( 1 )
 		{
 			while( !sender->connect( 1 ) ) {
 				std::this_thread::sleep_for(1s);
+			}
+
+			Message m1;
+			m1.commandName = "auth";
+			m1.params["name"] = "CM";
+			m1.params["password"] = "pass";
+			m1.params["localization"] = "PL";
+			sender->sendMessage(m1);
+			Message m2 = sender->getMessage();
+			if(m2.commandName != "authServ"){
+				throw ShutdownServerSignal();
 			}
 
 			pthread_create(&send_thread, NULL, &send, sender);
@@ -210,8 +187,9 @@ void* receive( void * s)
 					Message m = sender->getMessage();
 					std::cout<<m.toString()<<std::endl;
 					if(m.commandName == "close") {
-						sender->stopAll();
+						sender->stopServer();
 						pthread_join(send_thread, NULL);
+						sender->stopAll();
 						return 0;
 					}
 				}
@@ -227,28 +205,32 @@ void* receive( void * s)
 	}
 	catch( ServerClosingSignal& e ) {
 		std::cout<<"Received server closing signal"<<std::endl;
+
+		if( !sender->isConnected() ) {
+			sender->stopAll();
+			return 0;
+		}
+
+		pthread_join(send_thread, NULL);
 		sender->startServer();
 
-		//tutaj zwykłe zamknięcie, wysyłanie wiadomości do serwera
-		Message m;
-		m.commandName = "end";
-		m.params["time"] = getTimeString();
-		sender->pushQueueMessage(m);
-		sender->sendMessage();
-		//tutaj try catch ( łapać ShutdownServerSignal ) i wysyłanie wiadomości do serwera
-		//ze klient kończy swoje działanie
-
-			// catch ( ShutdownServerSignal& e) {
-			// 	pthread_join(send_thread, NULL);
-			// 	return 0;
-			// }
-
+		try {
+			Message m;
+			m.commandName = "end";
+			m.params["time"] = getTimeString();
+			sender->sendMessage(m);
+		}
+		catch ( ShutdownServerSignal& e) {
+			sender->stopAll();
+		 	pthread_join(send_thread, NULL);
+		 	return 0;
+		}
 
 		sender->stopAll();
 		return 0;
 	}
 	catch( ShutdownServerSignal& e ) {
-		//natychmiastowe zamknięcie, zamykaj wszystko
+		sender->stopAll();
 		pthread_join(send_thread, NULL);
 		return 0;
 	}
@@ -260,7 +242,6 @@ int main(int argc, char** argv)
 	MessageSender sender;
 	handle_camera = true;
 
-		//initialize command line parser
 	po::variables_map vm;
 	po::options_description desc("Allowed options");
 	try
@@ -285,7 +266,6 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
-	//print help
 	if ( vm.count("help") ) {
 		std::cout<<desc<<std::endl;
 		return 0;
@@ -301,13 +281,11 @@ int main(int argc, char** argv)
 		std::cout<<"port set to: "<<sender.getPort()<<std::endl;
 	}
 
-	//set movement_threshold
 	if( vm.count("movement_threshold") ) {
 		movement_threshold = vm["movement_threshold"].as<int>();
 		std::cout<<"movement_threshold set to: "<<movement_threshold<<std::endl;
 	}
 
-	//set subtractor_rate
 	if( vm.count("subtractor_rate") ) {
 		subtractor_rate = vm["subtractor_rate"].as<double>();
 		std::cout<<"subtractor_rate set to: "<<subtractor_rate<<std::endl;

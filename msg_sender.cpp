@@ -29,17 +29,6 @@
 #include "msg_sender.h"
 #include "server_exceptions.h"
 
-MessageSender::MessageSender()
-{
-	if( pipe(server_pipe) == -1 ) {
-		std::cout<<"Pipe error!"<<std::endl;
-	}
-
-	if( pipe(threads_pipe) == -1 ) {
-		std::cout<<"Pipe error!"<<std::endl;
-	}
-}
-
 std::string Message::toString () const
 {
 	typedef std::map<std::string, std::string>::const_iterator MapIterator;
@@ -53,23 +42,36 @@ std::string Message::toString () const
 	return str;
 }
 
+MessageSender::MessageSender()
+{
+	if( pipe(server_pipe) == -1 ) {
+		std::cout<<"Pipe error!"<<std::endl;
+	}
 
-void MessageSender::sendMessage ()
+	if( pipe(threads_pipe) == -1 ) {
+		std::cout<<"Pipe error!"<<std::endl;
+	}
+
+	auto func = std::bind( &MessageSender::updateSource, this, std::placeholders::_1 );
+	source.setUpdateSourceFunction( func );
+}
+
+void MessageSender::sendMessage()
 {
 	Message m = popQueueMessage();
+	sendMessage(m);
+}
+
+void MessageSender::sendMessage(Message& m)
+{
 	std::string str = m.toString();
 	const char* msg = str.c_str();
-	size_t bytes_sent = connection->send(msg, str.length());
-	if( bytes_sent <= 0 ) {
-		throw ServerDisconnected();
-	}
-	else if( bytes_sent < str.length()) {
-		size_t all_bytes_sent = bytes_sent;
-		while(str.length() - all_bytes_sent > 0) {
-			msg = msg + bytes_sent;
-			bytes_sent = connection->send(msg, str.length() - all_bytes_sent);
-			all_bytes_sent += bytes_sent;
-	 	}
+	size_t all_bytes_sent = 0;
+	size_t bytes_sent = 0;
+	while( all_bytes_sent < strlen(msg)) {
+		msg = msg + bytes_sent;
+		bytes_sent = connection->send(msg, strlen(msg));
+		all_bytes_sent += bytes_sent;
 	}
 }
 
@@ -87,6 +89,7 @@ void MessageSender::pushQueueMessage(const Message& msg)
 {
 	std::unique_lock<std::mutex> lck(queue_mutex);
 	msg_queue.emplace(msg);
+	notifyAll();
 }
 
 
@@ -112,25 +115,17 @@ Message MessageSender::getMessage ()
 	return m;
 }
 
-void MessageSender::updateSource()
+void MessageSender::updateSource(BufferSource *s)
 {
 	const int len = 100;
 	char buff [len];
 	size_t bytes_got = connection->receive(buff, len);
-
-	if( bytes_got <= 0 ) {
-		throw ServerDisconnected();
-	}
-	source.addToBuffer( buff, bytes_got );
+	s->addToBuffer( buff, bytes_got );
 }
 
 Token MessageSender::getTypeToken( const TokenSet& t )
 {
 	Token token = lexer.getNextToken( source );
-	while( token.getType() == Token::UNRECOGNISED ) {
-		updateSource();
-		token = lexer.getNextToken( source );
-	}
 	if( t.count( token.getType() ) != 1 ) {
 		throw UnexpectedToken();
 	}
@@ -204,10 +199,14 @@ bool MessageSender::connect(int timeout)
         }
     }
 
-	if (result == -1) return false;
+	if (result == -1) {
+		connected = false;
+		return false;
+	}
     connection = new TCPConnection(sd);
 	connection->setPipe( server_pipe[0] );
 	connection->setStoppingPipe( threads_pipe[0] );
+	connected = true;
 	return true;
 }
 

@@ -18,23 +18,26 @@
 #include <stdlib.h>
 #include "bufferSource.h"
 
-char BufferSource::getChar() {
-	if( msg_buffer.empty() ) {
-		return EOF;
-	}
-
-	char c = msg_buffer.front();
+char BufferSource::getChar()
+{
+	char c = peekChar();
 	msg_buffer.pop_front();
 	return c;
 }
 
 
-char BufferSource::peekChar() {
-	return msg_buffer.empty() ? EOF : msg_buffer.front() ;
+char BufferSource::peekChar()
+{
+	while( msg_buffer.empty() ) {
+		update(this);
+	}
+
+	return msg_buffer.front() ;
 }
 
-void BufferSource::addToBuffer( const char* buf, int len ) {
-	for( int i = 0; i < len ; ++i ) 
+void BufferSource::addToBuffer( const char* buf, int len )
+{
+	for( int i = 0; i < len ; ++i )
 	{
 		msg_buffer.push_back( *buf );
 		++buf;

@@ -15,6 +15,10 @@ TCPConnection::~TCPConnection()
 ssize_t TCPConnection::send(const char* buffer, size_t len)
 {
 	int buffer_ready = waitForWriteEvent();
+	if( buffer_ready == -1 ) {
+		throw ServerClosingSignal();
+	}
+
 	if( buffer_ready == m_pipe ) {
 		throw ServerClosingSignal();
 	}
@@ -30,6 +34,10 @@ ssize_t TCPConnection::send(const char* buffer, size_t len)
 ssize_t TCPConnection::receive(char* buffer, size_t len, int timeout)
 {
 	int buffer_ready = waitForReadEvent();
+	if( buffer_ready == -1 ) {
+		throw ServerClosingSignal();
+	}
+
 	if( buffer_ready == m_pipe ) {
 		throw ServerClosingSignal();
 	}
@@ -45,11 +53,14 @@ ssize_t TCPConnection::receive(char* buffer, size_t len, int timeout)
 int TCPConnection::waitForReadEvent()
 {
     fd_set sdset;
+	fd_set errset;
+	FD_ZERO(&errset);
+	FD_SET(m_sd, &errset);
     FD_ZERO(&sdset);
     FD_SET(m_sd, &sdset);
 	FD_SET(m_pipe, &sdset );
 	FD_SET(stopping_pipe, &sdset);
-    if (select(max_socket+1, &sdset, NULL, NULL, NULL) > 0)
+    if (select(max_socket+1, &sdset, NULL, &errset, NULL) > 0)
     {
 		if( FD_ISSET(m_pipe, &sdset) ) {
 			return m_pipe;
@@ -62,21 +73,32 @@ int TCPConnection::waitForReadEvent()
 		if( FD_ISSET(m_sd, &sdset) ) {
 			return m_sd;
 		}
+
+		if( FD_ISSET(m_sd, &errset) ) {
+			return -1;
+		}
     }
-    return 0;
+    return -1;
 }
 
 int TCPConnection::waitForWriteEvent()
 {
     fd_set sdset;
 	fd_set pipeset;
+	fd_set errset;
+	FD_ZERO(&errset);
+	FD_SET(m_sd, &errset);
     FD_ZERO(&sdset);
     FD_SET(m_sd, &sdset);
 	FD_ZERO(&pipeset);
 	FD_SET(m_pipe, &pipeset );
 	FD_SET(stopping_pipe, &pipeset);
-    if (select(max_socket+1, &pipeset, &sdset, NULL, NULL) > 0)
+    if ( select(max_socket+1, &pipeset, &sdset, &errset, NULL) > 0)
     {
+		if( FD_ISSET(m_sd, &errset) ) {
+			return -1;
+		}
+
 		if( FD_ISSET(m_sd, &sdset) ) {
 			return m_sd;
 		}
@@ -89,7 +111,7 @@ int TCPConnection::waitForWriteEvent()
 			return m_pipe;
 		}
     }
-    return 0;
+    return -1;
 }
 
 int TCPConnection::getMaxSocket() 

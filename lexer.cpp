@@ -32,27 +32,9 @@ Lexer::Lexer() {
 
 Token Lexer::getNextToken(Source& source)
 {
-	//source empty, nothing to read
-	if( source.peekChar() == EOF ) {
-		return Token();
-	}
-
-	if( !buf.empty() ) {
-		if( buf.front() == '#' ) {
-			return getMessageEdge( source );
-		}
-
-		return getStringMessage( source );
-	}
-
-
 	//skip white characters
-	while( source.peekChar() != EOF && isWhitespace( source.peekChar() ) ) {
+	while( isWhitespace( source.peekChar() ) ) {
 		source.getChar();
-	}
-
-	if( source.peekChar() == EOF ) {
-		return Token();
 	}
 
 	char curr =  source.getChar();
@@ -63,51 +45,27 @@ Token Lexer::getNextToken(Source& source)
 	}
 
 	if( curr == '#' ) {
-		buf = std::string( 1, curr );
 		return getMessageEdge( source );
 	}
 
 	std::string curr_token = std::string(1, curr);
-	while( source.peekChar() != EOF && !isStringEnd( source.peekChar() ) ) {
+	while( !isStringEnd( source.peekChar() ) ) {
 		curr_token.push_back( source.getChar() );
-	}
-
-	if( source.peekChar() == EOF ) {
-		buf = curr_token;
-		return Token();
 	}
 
 	return Token( curr_token, getTokenType( curr_token ) );
 }
 
 Token Lexer::getMessageEdge( Source& source ) {
+	std::string buf = "#";
 	while( source.peekChar() == '#' ) {
 		buf.push_back( source.getChar() );
 		if( isObjectEdge( buf ) ) {
-			std::string curr_token = buf;
-			buf = std::string();
-			return Token( curr_token, getTokenType( curr_token ) );
+			return Token( buf, getTokenType( buf ) );
 		}
 	}
 
-	if( source.peekChar() != EOF ) {
-		throw UnexpectedToken();
-	}
-
-	return Token();
-}
-
-Token Lexer::getStringMessage( Source& source ) {
-	while( source.peekChar() != EOF && !isStringEnd( source.peekChar() ) ) {
-		buf.push_back( source.getChar() );
-	}
-
-	if( source.peekChar() == EOF ) {
-		return Token();
-	}
-	std::string curr_token = buf;
-	buf = std::string();
-	return Token( curr_token, getTokenType( curr_token ) );
+	throw UnexpectedToken();
 }
 
 Token::TYPE Lexer::getTokenType( char c ) const

@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string>
 #include <deque>
+#include <functional>
 #include "source.h"
 
 class BufferSource : public Source {
@@ -38,8 +39,12 @@ class BufferSource : public Source {
 
 		void addToBuffer( const char* buf, int len );
 
+		void setUpdateSourceFunction(std::function<void(BufferSource*)> f)
+		{ update = f; }
+
 	private:
 		std::deque<char> msg_buffer;
+		std::function<void(BufferSource*)> update;
 };
 
 #endif
