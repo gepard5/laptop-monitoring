@@ -90,7 +90,6 @@ void* cameraHandler( void * s )
 
 				Message m;
 				m.commandName = "done";
-				m.params["time"] = getTimeString();
 				sender->pushQueueMessage(m);
 			}
 
@@ -192,6 +191,9 @@ void* receive( void * s)
 						pthread_join(send_thread, NULL);
 						sender->stopAll();
 						return 0;
+					}
+					if(m.commandName == "reconfig") {
+						calculate_new_backgorund = true;
 					}
 				}
 			}
